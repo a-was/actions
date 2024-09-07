@@ -22,6 +22,7 @@ jobs:
       REGISTRY: ${{ vars.REGISTRY }}
       REGISTRY_LOGIN: ${{ vars.REGISTRY_LOGIN }}
       # optional
+      DOCKERFILE: app/Dockerfile
       TAGS: |
         type=semver,pattern={{version}}
         type=ref,event=branch
@@ -29,7 +30,7 @@ jobs:
       REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
 ```
 
-## Docs
+# Docs
 
 - [Reusing workflows](https://docs.github.com/en/actions/sharing-automations/reusing-workflows)
 - [TAGS input](https://github.com/docker/metadata-action?tab=readme-ov-file#tags-input)
