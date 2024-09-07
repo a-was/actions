@@ -1,0 +1,86 @@
+name: Build and push docker image
+
+on:
+  workflow_call:
+    inputs:
+      IMAGE:
+        required: true
+        type: string
+        description: Docker image name
+      REGISTRY:
+        required: true
+        type: string
+        description: Docker registry url
+      REGISTRY_LOGIN:
+        required: true
+        type: string
+        description: Docker registry login
+      TAGS:
+        required: false
+        type: string
+        description: Generate Docker tags based on the following events/attributes
+        default: |
+          type=semver,pattern={{version}}
+          type=ref,event=branch
+    secrets:
+      REGISTRY_PASSWORD:
+        required: true
+        description: Docker registry password
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+      -
+        name: Create VERSION file
+        # https://docs.github.com/en/actions/learn-github-actions/contexts#github-context
+        # https://docs.github.com/en/webhooks/webhook-events-and-payloads#push
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_REF: ${{ github.ref }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_DATE: ${{ github.event.head_commit.timestamp }}
+          AUTHOR_NAME: ${{ github.event.head_commit.committer.name }}
+          AUTHOR_EMAIL: ${{ github.event.head_commit.committer.email }}
+        run: |
+          cat << EOF > VERSION
+          commit: $COMMIT_SHA
+          ref: $COMMIT_REF
+          date: $COMMIT_DATE
+          author: $AUTHOR_NAME <${AUTHOR_EMAIL}>
+          message: $COMMIT_MESSAGE
+          EOF
+          cat VERSION
+      -
+        name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            ${{ inputs.REGISTRY }}/${{ inputs.IMAGE }}
+          # generate Docker tags based on the following events/attributes
+          tags: ${{ inputs.TAGS }}
+      -
+        name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.REGISTRY }}
+          username: ${{ inputs.REGISTRY_LOGIN }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+      -
+        name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
