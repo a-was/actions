@@ -1,0 +1,60 @@
+name: Run python tests
+
+on:
+  workflow_call:
+    inputs:
+      PYTHON_VERSION:
+        required: false
+        type: string
+        description: Python version to use
+        default: "3.14"
+      REQUIREMENTS:
+        required: false
+        type: string
+        description: Path to requirements file with test dependencies
+        default: requirements-dev.txt
+      LINT:
+        required: false
+        type: boolean
+        description: Run ruff check and ruff format --check, ruff has to be in REQUIREMENTS
+        default: true
+      PYTEST_ARGS:
+        required: false
+        type: string
+        description: Arguments passed to pytest
+        default: -v
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v7
+      -
+        name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+          cache: pip
+          # REQUIREMENTS and other requirements files it can include with `-r`
+          cache-dependency-path: |
+            ${{ inputs.REQUIREMENTS }}
+            **/requirements*.txt
+      -
+        name: Install dependencies
+        run: pip install -r ${{ inputs.REQUIREMENTS }}
+      -
+        name: Lint
+        if: inputs.LINT
+        run: ruff check .
+      -
+        name: Check formatting
+        if: inputs.LINT
+        run: ruff format --check .
+      -
+        name: Run tests
+        run: python -m pytest ${{ inputs.PYTEST_ARGS }}
